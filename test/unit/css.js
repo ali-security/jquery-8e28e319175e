@@ -25,7 +25,7 @@ test("css(String|Hash)", function() {
 	equal( div.css("width"), "4px", "Width on disconnected node." );
 	equal( div.css("height"), "4px", "Height on disconnected node." );
 
-	div2 = jQuery( "<div style='display:none;'><input type='text' style='height:20px;'/><textarea style='height:20px;'/><div style='height:20px;'></div></div>").appendTo("body");
+	div2 = jQuery( "<div style='display:none;'><input type='text' style='height:20px;'/><textarea style='height:20px;'></textarea><div style='height:20px;'></div></div>").appendTo("body");
 
 	equal( div2.find("input").css("height"), "20px", "Height on hidden input." );
 	equal( div2.find("textarea").css("height"), "20px", "Height on hidden textarea." );
@@ -42,7 +42,7 @@ test("css(String|Hash)", function() {
 	equal( parseFloat(jQuery("#nothiddendiv").css("width")), 0, "Test negative width set to 0");
 	equal( parseFloat(jQuery("#nothiddendiv").css("height")), 0, "Test negative height set to 0");
 
-	equal( jQuery("<div style='display: none;'/>").css("display"), "none", "Styles on disconnected nodes");
+	equal( jQuery("<div style='display: none;'></div>").css("display"), "none", "Styles on disconnected nodes");
 
 	jQuery("#floatTest").css({"float": "right"});
 	equal( jQuery("#floatTest").css("float"), "right", "Modified CSS float using \"float\": Assert float is right");
