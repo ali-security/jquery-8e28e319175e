@@ -2574,3 +2574,124 @@ asyncTest( "Sanitized HTML doesn't get unsanitized by buildFragment-based method
 		start();
 	}, 1000 );
 });
+
+test( "<option> and <optgroup> markup is parsed like the browser parses it in a div (gh-4647)", function() {
+
+	var i, j, html, native, nativeHtml, parsed,
+		probe = document.createElement("div"),
+		htmlStrings = [
+			"<option>a</option></select><b>b</b>",
+			"<optgroup label='g'><option>a</option></optgroup></select><b>b</b>",
+			"<option>a</option><input><b>b</b>"
+		],
+		methods = [
+			[ "html", function( html ) {
+				return jQuery("<div></div>").html( html )[ 0 ].innerHTML;
+			} ],
+			[ "append", function( html ) {
+				return jQuery("<div></div>").append( html )[ 0 ].innerHTML;
+			} ],
+			[ "jQuery", function( html ) {
+				return jQuery("<div></div>").append( jQuery( html ) )[ 0 ].innerHTML;
+			} ],
+			[ "jQuery.parseHTML", function( html ) {
+				return jQuery("<div></div>").append( jQuery.parseHTML( html ) )[ 0 ].innerHTML;
+			} ]
+		];
+
+	// Support: IE<=9
+	// IE<=9 drops <option> tags inserted outside of a select element,
+	// so jQuery has to keep wrapping them there.
+	probe.innerHTML = "<option></option>";
+	if ( !probe.lastChild ) {
+		expect( 1 );
+		ok( true, "<option> markup needs a select wrapper in this browser" );
+		return;
+	}
+
+	expect( htmlStrings.length * methods.length );
+
+	for ( i = 0; i < htmlStrings.length; i++ ) {
+		html = htmlStrings[ i ];
+
+		// This is the markup an HTML sanitizer working on a div sees
+		native = document.createElement("div");
+		native.innerHTML = html;
+		nativeHtml = native.innerHTML;
+
+		for ( j = 0; j < methods.length; j++ ) {
+			parsed = methods[ j ][ 1 ]( html );
+			equal( parsed, nativeHtml, methods[ j ][ 0 ] + "( " + html + " ) isn't wrapped in a select element" );
+		}
+	}
+});
+
+asyncTest( "Sanitized HTML containing <option> doesn't get unsanitized (gh-4647)", function() {
+
+	var container, i, j, payload,
+		executed = {},
+		payloads = [],
+		templates = [
+			// Thanks to Masato Kinugawa from Cure53 for providing the following test case.
+			// Note: browsers whose parser allows <style> inside <select> keep these
+			// payloads inert even when wrapped; the gh-4647 parsing test above covers
+			// the wrapping itself in every browser.
+			"<option><style></option></select><img src=url404 onerror=xss(#)></style>",
+			"<optgroup><style></optgroup></select><img src=url404 onerror=xss(#)></style>"
+		],
+		methods = [
+			[ "html", function( html ) {
+				jQuery("<div></div>").appendTo( container ).html( html );
+			} ],
+			[ "append", function( html ) {
+				jQuery("<div></div>").appendTo( container ).append( html );
+			} ],
+			[ "prepend", function( html ) {
+				jQuery("<div></div>").appendTo( container ).prepend( html );
+			} ],
+			[ "before", function( html ) {
+				jQuery("<div></div>").appendTo( container ).before( html );
+			} ],
+			[ "after", function( html ) {
+				jQuery("<div></div>").appendTo( container ).after( html );
+			} ],
+			[ "replaceWith", function( html ) {
+				jQuery("<div></div>").appendTo( container ).replaceWith( html );
+			} ],
+			[ "jQuery", function( html ) {
+				jQuery( html );
+			} ],
+			[ "jQuery.parseHTML", function( html ) {
+
+				// Use the live document as context; the default inert document
+				// never loads images, so it can't expose the payload
+				jQuery.parseHTML( html, document );
+			} ]
+		];
+
+	expect( templates.length * methods.length );
+
+	Globals.register("xss");
+	window.xss = function( index ) {
+		executed[ index ] = true;
+	};
+
+	container = jQuery("<div></div>").appendTo("#qunit-fixture");
+
+	for ( i = 0; i < templates.length; i++ ) {
+		for ( j = 0; j < methods.length; j++ ) {
+			payload = templates[ i ].replace( "#", payloads.length );
+			payloads.push( methods[ j ][ 0 ] + "( " + payload + " )" );
+			methods[ j ][ 1 ]( payload );
+		}
+	}
+
+	// Using a timeout because the xss function is called asynchronously,
+	// from the onerror handler of the injected image
+	setTimeout(function() {
+		for ( i = 0; i < payloads.length; i++ ) {
+			ok( !executed[ i ], "Payload #" + i + " isn't executed: " + payloads[ i ] );
+		}
+		start();
+	}, 1000 );
+});
